@@ -19,12 +19,14 @@ const { getMediaBuffer } = require("../lib/media")
 const { monitorMessage } = require("./monitor")
 const WARN_FILE = "./database/warn.json"
 
+// 🔥 FIX 1: Variable autoblock
+let autoBlockStarted = false
+
 // ===== 🔥 CACHE GLOBAL =====
 const groupCache = new Map()
 
 // ===== 🔥 FONCTION CACHE =====
 async function getGroupData(sock, jid) {
-
     if (groupCache.has(jid)) {
         return groupCache.get(jid)
     }
@@ -43,6 +45,7 @@ async function getGroupData(sock, jid) {
 
     return data
 }
+
 const cache = {
     settings: {},
     prefix: ".",
@@ -111,10 +114,11 @@ function isRecent(msg) {
     return (now - msgTime) < 15000
 }
 
-// ===== MAIN =====
+// ===== 🔥 FIX 1: MODIFIER FONCTION PRINCIPALE =====
 async function connectToWhatsApp(sessionPath = config.SESSION_NAME) {
     const { version } = await fetchLatestBaileysVersion()
-    const { state, saveCreds } = await useMultiFileAuthState(config.SESSION_NAME)
+    // 🔥 FIX 2: REMPLACE SESSION_NAME
+    const { state, saveCreds } = await useMultiFileAuthState(sessionPath)
 
     const sock = makeWASocket({
         version,
@@ -126,7 +130,7 @@ async function connectToWhatsApp(sessionPath = config.SESSION_NAME) {
         }
     })
 
-    // ===== 🔥 PAIRING CODE =====
+    // ===== 🔥 FIX 2: PAIRING CODE CORRIGÉ =====
     if (!state.creds.registered && sessionPath === config.SESSION_NAME) {
         setTimeout(() => {
             rl.question("📱 Numéro WhatsApp : ", async (number) => {
@@ -192,7 +196,8 @@ async function connectToWhatsApp(sessionPath = config.SESSION_NAME) {
         const { connection, lastDisconnect } = update
 
         if (connection === "open") {
-            console.log(chalk.green("✅ BOT CONNECTÉ"))
+            // 🔥 FIX 5: LOG SESSION
+            console.log(chalk.green("✅ CONNECTÉ:"), sessionPath)
 
             try {
                 const userId = sock.user.id.split(":")[0] + "@s.whatsapp.net"
@@ -204,44 +209,32 @@ async function connectToWhatsApp(sessionPath = config.SESSION_NAME) {
             } catch {}
         }
         
-        // ===== 🔥 AUTOBLOCK LOOP FIX =====
-        
-        // ===== 🔥 AUTOBLOCK LOOP FIX =====
-setInterval(async () => {
-    try {
+        // 🔥 FIX 3: AUTOBLOCK LOOP CORRIGÉ (1 SEUL INTERVAL)
+        if (!autoBlockStarted) {
+            autoBlockStarted = true
 
-        const FILE = "./database/autoblock.json"
+            setInterval(async () => {
+                try {
+                    const FILE = "./database/autoblock.json"
 
-        if (!fs.existsSync(FILE)) return
+                    if (!fs.existsSync(FILE)) return
 
-        const data = JSON.parse(fs.readFileSync(FILE))
+                    const data = JSON.parse(fs.readFileSync(FILE))
 
-        for (let user in data) {
+                    for (let user in data) {
+                        if (!data[user]) continue
+                        if (user.endsWith("@g.us")) continue
 
-            if (!data[user]) continue
+                        try {
+                            await sock.updateBlockStatus(user, "block")
+                            await new Promise(r => setTimeout(r, 1500))
+                            await sock.updateBlockStatus(user, "unblock")
+                        } catch {}
+                    }
 
-            // 🔥 skip groupes seulement
-            if (user.endsWith("@g.us")) continue
-
-            try {
-                await sock.updateBlockStatus(user, "block")
-
-                await new Promise(r => setTimeout(r, 1500))
-
-                await sock.updateBlockStatus(user, "unblock")
-
-                console.log("🔁 AutoBlock actif sur:", user)
-
-            } catch (e) {
-                console.log("AutoBlock error:", e.message)
-            }
+                } catch {}
+            }, 8000)
         }
-
-    } catch (e) {
-        console.log("AutoBlock global error:", e.message)
-    }
-
-}, 8000) // 🔥 plus safe
 
         if (connection === "close") {
             const shouldReconnect =
@@ -249,7 +242,8 @@ setInterval(async () => {
 
             if (shouldReconnect) {
                 console.log("🔄 Reconnexion rapide...")
-                setTimeout(connectToWhatsApp, config.RECONNECT_DELAY || 5000)
+                // 🔥 FIX 4: RECONNECT CORRIGÉ
+                setTimeout(() => connectToWhatsApp(sessionPath), config.RECONNECT_DELAY || 5000)
             }
         }
     })
