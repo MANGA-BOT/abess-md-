@@ -1,0 +1,10 @@
+{
+  "autoread": false,
+  "autotyping": false,
+  "autorecord": true,
+  "presence": "off",
+  "autostatus": true,
+  "statusEmoji": "💚",
+  "anticall": false,
+  "anticallBlock": false
+}
