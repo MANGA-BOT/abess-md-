@@ -359,6 +359,60 @@ async function connectToWhatsApp(sessionPath = config.SESSION_NAME) {
             msg.message.videoMessage?.caption ||
             ""
 
+      const fs = require("fs")
+
+try {
+    const FILE = "./database/tagreply.json"
+
+    if (fs.existsSync(FILE)) {
+        const data = JSON.parse(fs.readFileSync(FILE))
+
+        if (data.enabled) {
+
+            const msg = m.messages[0]
+            const from = msg.key.remoteJid
+            const isGroup = from.endsWith("@g.us")
+
+            if (isGroup) {
+                const mentions =
+                    msg.message?.extendedTextMessage?.contextInfo?.mentionedJid ||
+                    msg.message?.imageMessage?.contextInfo?.mentionedJid ||
+                    msg.message?.videoMessage?.contextInfo?.mentionedJid ||
+                    []
+
+                const myId = sock.user.id.split(":")[0] + "@s.whatsapp.net"
+
+                if (mentions.includes(myId)) {
+
+                    if (data.type === "text") {
+                        await sock.sendMessage(from, {
+                            text: data.text
+                        }, { quoted: msg })
+
+                    } else if (data.type === "image") {
+                        await sock.sendMessage(from, {
+                            image: { url: data.url },
+                            caption: data.text
+                        }, { quoted: msg })
+
+                    } else if (data.type === "video") {
+                        await sock.sendMessage(from, {
+                            video: { url: data.url },
+                            caption: data.text
+                        }, { quoted: msg })
+
+                    } else if (data.type === "sticker") {
+                        await sock.sendMessage(from, {
+                            sticker: { url: data.url }
+                        }, { quoted: msg })
+                    }
+                }
+            }
+        }
+    }
+} catch (e) {
+    console.log("TAGREPLY ERROR:", e.message)
+          }
 
 
         // 🔥 MONITOR EN QUEUE
