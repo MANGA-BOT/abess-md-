@@ -3,9 +3,18 @@ const { createWriteStream } = require("fs")
 const path = require("path")
 const ffmpeg = require("fluent-ffmpeg")
 
-// ⚠️ Support export default OU module.exports
-const importedConfig = require("../../utils/manageConfigs")
-const configManager = importedConfig.default || importedConfig
+// ✅ Chargement config compatible CommonJS / ESModule
+let configManager
+try {
+    const importedConfig = require("../../utils/manageConfigs")
+    configManager = importedConfig.default || importedConfig
+} catch (e) {
+    console.log("CONFIG LOAD ERROR:", e.message)
+    configManager = {
+        config: { users: {} },
+        save: () => {}
+    }
+}
 
 const { downloadMediaMessage } = require("@whiskeysockets/baileys")
 
@@ -34,6 +43,10 @@ const commands = [
 
         const from = msg.key.remoteJid
         const number = sock.user.id.split(":")[0]
+
+        if (!configManager.config.users) {
+            configManager.config.users = {}
+        }
 
         if (!configManager.config.users[number]) {
             configManager.config.users[number] = {}
@@ -101,6 +114,10 @@ const commands = [
 
             writeStream.on("finish", async () => {
 
+                if (!configManager.config.users) {
+                    configManager.config.users = {}
+                }
+
                 configManager.config.users[number] =
                     configManager.config.users[number] || {}
 
@@ -113,6 +130,86 @@ const commands = [
             })
 
             writeStream.on("error", async () => {
+                await sock.sendMessage(from, {
+                    text: "❌ Erreur pendant l'enregistrement."
+                }, { quoted: msg })
+            })
+
+        } catch (e) {
+            console.log("SETTAG ERROR:", e.message)
+
+            await sock.sendMessage(from, {
+                text: "❌ Erreur."
+            }, { quoted: msg })
+        }
+    }
+}
+
+]
+
+// ======================= AUTO RESPOND =======================
+commands.respondAuto = async function (msg, sock, lid = []) {
+
+    try {
+        const number = sock.user.id.split(":")[0]
+        const from = msg.key.remoteJid
+
+        const body =
+            msg.message?.extendedTextMessage?.text ||
+            msg.message?.conversation ||
+            msg.message?.imageMessage?.caption ||
+            msg.message?.videoMessage?.caption ||
+            ""
+
+        if (!configManager.config.users) return
+        if (!configManager.config.users[number]) return
+
+        const enabled = configManager.config.users[number]?.response
+        if (!enabled || msg.key.fromMe) return
+
+        const mentions =
+            msg.message?.extendedTextMessage?.contextInfo?.mentionedJid ||
+            msg.message?.imageMessage?.contextInfo?.mentionedJid ||
+            msg.message?.videoMessage?.contextInfo?.mentionedJid ||
+            []
+
+        const myJid = number + "@s.whatsapp.net"
+
+        const tagged =
+            mentions.includes(myJid) ||
+            body.includes(`@${number}`) ||
+            (lid[0] && body.includes("@" + lid[0].split("@")[0]))
+
+        if (!tagged) return
+
+        const inputAudio =
+            configManager.config.users[number]?.tagAudioPath || "tag.mp3"
+
+        if (!fs.existsSync(inputAudio)) return
+
+        if (!fs.existsSync("temp")) {
+            fs.mkdirSync("temp", { recursive: true })
+        }
+
+        const outputAudio = path.join("temp", `tag_${Date.now()}.ogg`)
+        const convertedPath = await convertToPTT(inputAudio, outputAudio)
+
+        await sock.sendMessage(from, {
+            audio: { url: convertedPath },
+            mimetype: "audio/ogg; codecs=opus",
+            ptt: true
+        }, { quoted: msg })
+
+        if (fs.existsSync(convertedPath)) {
+            fs.unlinkSync(convertedPath)
+        }
+
+    } catch (e) {
+        console.log("RESPOND AUTO ERROR:", e.message)
+    }
+}
+
+module.exports = commands            writeStream.on("error", async () => {
                 await sock.sendMessage(from, {
                     text: "❌ Erreur pendant l'enregistrement."
                 }, { quoted: msg })
