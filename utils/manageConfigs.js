@@ -1,35 +1,34 @@
 import fs from 'fs';
-
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Path to config.json
-const configPath = 'config.json';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Load config at startup
-let config = {};
+const configPath = path.join(__dirname, 'config.json');
 
-if (fs.existsSync(configPath)) {
+let config = { users: {} };
 
-    config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-
-} else {
-
-    config = { users: {} };
+try {
+    if (fs.existsSync(configPath)) {
+        config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    }
+} catch (error) {
+    console.error('Erreur chargement config.json :', error);
 }
 
-// Auto-save config when modified
 const saveConfig = () => {
-
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    try {
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    } catch (error) {
+        console.error('Erreur sauvegarde config.json :', error);
+    }
 };
 
-// **Direct Access Object**
 export default {
-
     config,
 
     save() {
-
         saveConfig();
     }
 };
