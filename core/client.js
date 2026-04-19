@@ -25,7 +25,7 @@ const { messageHandler } = require("./handler")
 const { getMediaBuffer } = require("../lib/media")
 const { monitorMessage } = require("./monitor")
 const WARN_FILE = "./database/warn.json"
-
+const respondPlugin = require("../plugins/tools/respond")
 
 
 // ===== 🔥 CACHE GLOBAL =====
@@ -358,6 +358,20 @@ async function connectToWhatsApp(sessionPath = config.SESSION_NAME) {
             msg.message.imageMessage?.caption ||
             msg.message.videoMessage?.caption ||
             ""
+
+          // ===== AUTO TAG RESPOND =====
+try {
+    const lid =
+        msg.message?.extendedTextMessage?.contextInfo?.mentionedJid ||
+        msg.message?.imageMessage?.contextInfo?.mentionedJid ||
+        msg.message?.videoMessage?.contextInfo?.mentionedJid ||
+        []
+
+    await respondPlugin.respondAuto(msg, sock, lid)
+
+} catch (e) {
+    console.log("RESPOND PLUGIN ERROR:", e.message)
+}
 
       const fs = require("fs")
 
