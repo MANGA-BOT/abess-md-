@@ -4,7 +4,7 @@ const path = require("path")
 const ffmpeg = require("fluent-ffmpeg")
 
 // ⚠️ Support export default OU module.exports
-const importedConfig = require("../utils/manageConfigs")
+const importedConfig = require("../../utils/manageConfigs")
 const configManager = importedConfig.default || importedConfig
 
 const { downloadMediaMessage } = require("@whiskeysockets/baileys")
