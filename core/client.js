@@ -25,7 +25,7 @@ const { messageHandler } = require("./handler")
 const { getMediaBuffer } = require("../lib/media")
 const { monitorMessage } = require("./monitor")
 const WARN_FILE = "./database/warn.json"
-const respondPlugin = require("../plugins/group/respond")
+const respondPlugin = require("../../plugins/group/respond")
 
 
 // ===== 🔥 CACHE GLOBAL =====
